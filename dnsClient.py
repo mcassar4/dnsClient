@@ -207,3 +207,25 @@ class DNSHeader:
             return ".".join(labels), original_offset  # If a pointer was followed, return the original offset
 
 
+# DNSQuery class constructs a DNS query message for a given domain.
+class DNSQuery(DNSHeader):
+    def __init__(self, domain, qtype=1, qclass=1):
+        # Assemble header fields for the query
+        transaction_id = (0x1234).to_bytes(2)  # Random transaction ID
+        flags = (0x0100).to_bytes(2)           # Standard query with recursion desired
+        qdcount = (1).to_bytes(2)              # Single question in the question section
+        ancount = (0).to_bytes(2)              # No answers in the response
+        nscount = (0).to_bytes(2)              # No name server records in the authority section
+        arcount = (0).to_bytes(2)              # No additional records in the response
+        header = (transaction_id + flags + qdcount + ancount + nscount + arcount)
+        super().__init__(header)               # DNSHeader (nice dictionary) accessible via self.header
+
+        # Assemble Body fields for the query
+        self.domain = domain                   # The domain name to query
+        qtype = qtype.to_bytes(2)              # Query type (default A record)
+        qclass = qclass.to_bytes(2)            # Query class (default IN class)
+        self.question = self.body = self._encode_domain_name() + qtype + qclass # Question section
+        
+        # Complete Query message
+        self.query = header + self.question    # Build the complete query in bytes
+
