@@ -153,3 +153,57 @@ class DNSHeader:
         parsed["RCODE"]     = HEADER_FIELD_DEFS["RCODE"]    [flag_value & 0xF]
         return parsed
 
+    def _parse_domain_name(self, message, offset):
+        """
+        Parses a domain name from the DNS message starting at the given offset.
+        Supports both uncompressed labels and compressed pointers.
+
+        Parameters:
+        - message: The complete DNS message as bytes.
+        - offset: The starting position in the message to parse the domain name.
+
+        Returns:
+        - A tuple containing the domain name and the updated offset in the message after the domain name read.
+        """
+        labels = []
+        original_offset = offset  # Save the original offset to return if we encounter a pointer.
+        jumped = False  # Flag to indicate if we have followed a pointer.
+
+        # Iterate through the message to construct the domain name labels [www, example, com]
+        while True:
+
+            # The first byte of the message is the length of the current label
+            length = message[offset]  # Read the length of the label.
+            if length == 0:     # If the length is zero, we have reached the end of the domain name
+                offset += 1     # Move past the null termination.
+                break
+
+            # Check if the label is a pointer or a regular label
+            if (length & 0xC0) == 0xC0: # First two bits are 1, so this is a pointer
+                # Next 14 bits are the offset to the actual location of the label
+                pointer_high = (length & 0x3F) # Mask off the pointer indicator bits
+                pointer_high <<= 8  # Shift the high bits to the left (8 + 6 = 14)
+                pointer_low = message[offset + 1]  # Read the low 8 bits of the pointer
+                next_label_loc = pointer_high | pointer_low  # OR together to get 14 bit pointer offset
+
+
+                if not jumped:
+                    original_offset = offset + 2  # Save position after the two pointer bytes to resume later
+                offset = next_label_loc  # Update offset to the next label location
+                jumped = True  # Set the jumped flag as we are now following a pointer
+            
+            # If the length is not a pointer, the length means the num label characters
+            # so we read that many bytes to get the end of the label
+            else:
+                offset += 1  # Move past the length octet
+                label = message[offset:offset + length].decode()  # Extract the label
+                labels.append(label)  # Add the label to the list
+                offset += length  # Move to the next label
+
+        # Return the constructed domain name and appropriate offset.
+        if not jumped:
+            return ".".join(labels), offset  # If no pointer was followed, return the current offset
+        else:
+            return ".".join(labels), original_offset  # If a pointer was followed, return the original offset
+
+
