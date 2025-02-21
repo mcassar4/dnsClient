@@ -119,3 +119,23 @@ QUESTION_FIELDS = {
     "QTYPE": "2 octets",
     "QCLASS": "2 octets"
 }
+
+
+
+# DNSHeader encodes structure of a DNS message header
+class DNSHeader:
+    def __init__(self, raw_bytes):
+        self.raw_bytes = raw_bytes
+        self.header = self.parse_header(raw_bytes[:12])     # Parse the fixed header section
+
+    def parse_header(self, header_bytes):
+        # Parses the header fields
+        parsed = {}
+        # Parse each field name using the defined byte positions
+        for field, (start, end) in HEADER_FIELD_BYTES.items():
+            if field != "Flags":
+                parsed[field] = int.from_bytes(header_bytes[start:end])
+        # Parse the Flags field using helper method.
+        parsed["Flags"] = self.parse_flags(header_bytes[2:4])
+        return parsed
+
