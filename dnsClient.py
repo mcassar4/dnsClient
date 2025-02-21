@@ -139,3 +139,17 @@ class DNSHeader:
         parsed["Flags"] = self.parse_flags(header_bytes[2:4])
         return parsed
 
+    def parse_flags(self, flag_bytes):
+        # Extracts and decodes the flag bits from the 2-byte flag field.
+        flag_value = int.from_bytes(flag_bytes)
+        parsed = {}
+        parsed["QR"]        = HEADER_FIELD_DEFS["QR"]       [(flag_value >> 15) & 0x1] # 1 bit
+        parsed["Opcode"]    = HEADER_FIELD_DEFS["Opcode"]   [(flag_value >> 11) & 0xF] # 4 bits
+        parsed["AA"]        = HEADER_FIELD_DEFS["AA"]       [(flag_value >> 10) & 0x1] # 1 bit
+        parsed["TC"]        = HEADER_FIELD_DEFS["TC"]       [(flag_value >> 9) & 0x1]  # 1 bit
+        parsed["RD"]        = HEADER_FIELD_DEFS["RD"]       [(flag_value >> 8) & 0x1]  # 1 bit
+        parsed["RA"]        = HEADER_FIELD_DEFS["RA"]       [(flag_value >> 7) & 0x1]  # 1 bit
+        parsed["Z"]         = HEADER_FIELD_DEFS["Z"]        [0]  # Reserved so always zero
+        parsed["RCODE"]     = HEADER_FIELD_DEFS["RCODE"]    [flag_value & 0xF]
+        return parsed
+
