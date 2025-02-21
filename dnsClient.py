@@ -326,3 +326,29 @@ class DNSResponse(DNSHeader):
 
 
 
+# Helper function to pretty-print the DNS response in nslookup style
+def pretty_print_nslookup(response, server):
+    # Print DNS server info using f-strings
+    print(f"Server:\t\t{server}")
+    print(f"Address:\t{server}#53\n")
+    
+    # Print the answer section in nslookup style output if there are answers
+    if response.body["Answers"]:
+        print("Non-authoritative answer:")
+        # Assume the first question contains the queried domain
+        query_name = response.response.get("Questions", [{'QNAME': 'unknown'}])[0]["QNAME"]
+        for answer in response.body["Answers"]:
+            if answer["TYPE"] == "CNAME":
+                # Print canonical name mapping
+                print(f"{query_name}\tcanonical name = {answer['RDATA']}")
+            elif answer["TYPE"] == "A":
+                # Print Name and Address fields
+                print(f"\nName:\t{answer['NAME']}")
+                print(f"Address:\t{answer['RDATA']}")
+            else:
+                # Fallback for other types.
+                print(f"{answer['TYPE']}: {answer['RDATA']}")
+    else:
+        print("No Answers.")
+
+
