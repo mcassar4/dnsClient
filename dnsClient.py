@@ -244,3 +244,85 @@ class DNSResponse(DNSHeader):
         self.body = self.parse_body()                   # Process and parse the variable sections
         self.response = {**self.header, **self.body}    # Full response structure by combining dictoinaries
 
+    def parse_body(self):
+        # Parses the question, answer, authority, and additional sections.
+        offset = 12  # Skip the fixed header.
+        questions = []
+        for _ in range(self.header["QDCOUNT"]):
+            question, offset = self.parse_question(offset)
+            questions.append(question)
+        answers = []
+        for _ in range(self.header["ANCOUNT"]):
+            answer, offset = self.parse_resource_record(offset)
+            answers.append(answer)
+        authorities = []
+        for _ in range(self.header["NSCOUNT"]):
+            auth, offset = self.parse_resource_record(offset)
+            authorities.append(auth)
+        additionals = []
+        for _ in range(self.header["ARCOUNT"]):
+            add, offset = self.parse_resource_record(offset)
+            additionals.append(add)
+        return {
+            "Questions": questions,
+            "Answers": answers,
+            "Authorities": authorities,
+            "Additionals": additionals
+        }
+
+    def parse_question(self, offset):
+        # Parses one question entry from the DNS message.
+        qname, offset = self._parse_domain_name(self.raw_bytes, offset)
+
+        qtype = int.from_bytes(self.raw_bytes[offset:offset + 2])
+        offset += 2
+        qclass = int.from_bytes(self.raw_bytes[offset:offset + 2])
+        offset += 2
+        # Convert QTYPE and QCLASS using the dictionaries.
+        qtype_str = RECORD_TYPES.get(qtype, str(qtype))
+        qclass_str = RECORD_CLASSES.get(qclass, str(qclass))
+
+        return {"QNAME": qname, "QTYPE": qtype_str, "QCLASS": qclass_str}, offset
+
+    def parse_resource_record(self, offset):
+        # Parses a resource record (answer, authority, or additional)
+        name, offset = self._parse_domain_name(self.raw_bytes, offset)
+
+        rtype = int.from_bytes(self.raw_bytes[offset:offset + 2])
+        offset += 2
+        rclass = int.from_bytes(self.raw_bytes[offset:offset + 2])
+        offset += 2
+        ttl = int.from_bytes(self.raw_bytes[offset:offset + 4])
+        offset += 4
+        rdlength = int.from_bytes(self.raw_bytes[offset:offset + 2])
+        offset += 2
+        # Save RDATA start position for decoding
+        rdata_start = offset
+        rdata = self.raw_bytes[offset:offset + rdlength]
+        offset += rdlength
+
+        # Convert record type and class using the dictionaries
+        type_str = RECORD_TYPES.get(rtype, str(rtype))
+        class_str = RECORD_CLASSES.get(rclass, str(rclass))
+        
+        # Process RDATA based on record type.
+        if type_str == "A" and rdlength == 4:  # A record with 4-byte address
+            rdata_str = ".".join(str(b) for b in rdata)
+        elif type_str == "CNAME":
+            # Decode the compressed domain name in RDATA using the original message context
+            cname, _ = self._parse_domain_name(self.raw_bytes, rdata_start)
+            rdata_str = cname
+        else:
+            rdata_str = rdata.hex()
+            
+        return {
+            "NAME": name,
+            "TYPE": type_str,
+            "CLASS": class_str,
+            "TTL": ttl,
+            "RDLENGTH": rdlength,
+            "RDATA": rdata_str
+        }, offset
+
+
+
