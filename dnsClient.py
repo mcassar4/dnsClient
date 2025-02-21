@@ -352,3 +352,45 @@ def pretty_print_nslookup(response, server):
         print("No Answers.")
 
 
+# ----------------- Main Script -----------------
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <hostname> [<dns_server>]")
+        sys.exit(1)
+
+    hostname = sys.argv[1]
+    # Use provided DNS server or default to my router's IP
+    dns_server = sys.argv[2] if len(sys.argv) > 2 else "192.168.1.1"
+
+    print("Querying DNS for hostname: {} via server: {}".format(hostname, dns_server))
+    try:
+        # Create a DNS query message as bytes
+        query = DNSQuery(hostname)
+        print("\nDNS Query:", query.query)
+        print("DNS Query Header", query.header)
+        print("DNS Query Body", query.body)
+
+        # Send the query to the DNS server and receive the response
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(5)                         # Set a timeout of 5 seconds for the query
+            s.sendto(query.query, (dns_server, 53)) # Send the query to the DNS server on port 53
+            response_bytes, _ = s.recvfrom(512)     # Receive up to 512 bytes as per DNS standard
+        
+        print("-"*60)
+
+        print("RAW DNS RESPONSE:", response_bytes)
+        response = DNSResponse(response_bytes)
+        print("DNS Response:", response.response)
+        print("DNS Response Header:", response.header)
+        print("DNS Response Body:", response.body)
+        
+        print("-"*60)
+
+        # Pretty-print response in nslookup style
+        print("\tNSLOOKUP")
+        pretty_print_nslookup(response, dns_server)
+
+    except Exception as e:
+        print("DNS query failed:", e)
