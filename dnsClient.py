@@ -237,3 +237,10 @@ class DNSQuery(DNSHeader):
         return encoded + b'\x00'  # null termination for the end of the domain name
 
 
+# DNSResponse class parses a DNS response message.
+class DNSResponse(DNSHeader):
+    def __init__(self, raw_bytes):
+        super().__init__(raw_bytes)                     # Header accessible via self.header
+        self.body = self.parse_body()                   # Process and parse the variable sections
+        self.response = {**self.header, **self.body}    # Full response structure by combining dictoinaries
+
