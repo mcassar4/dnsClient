@@ -229,3 +229,11 @@ class DNSQuery(DNSHeader):
         # Complete Query message
         self.query = header + self.question    # Build the complete query in bytes
 
+    def _encode_domain_name(self):
+        # Converts a domain name "www.example.com" to DNS label format
+        labels = self.domain.split('.')
+        # Encode each label as a length byte followed by the ASCII character bytes
+        encoded = b''.join(bytes([len(label)]) + label.encode() for label in labels)
+        return encoded + b'\x00'  # null termination for the end of the domain name
+
+
